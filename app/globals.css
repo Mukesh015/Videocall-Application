@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -30,4 +29,44 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+.bubble {
+  animation: bubbles 10s linear infinite;
+}
+@keyframes bubbles {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-110vh);
+    opacity: 0;
+  }
+}
+#sevenbubble img:nth-child(1) {
+  animation-delay: 2s;
+}
+#sevenbubble img:nth-child(2) {
+  animation-delay: 3s;
+}
+#sevenbubble img:nth-child(3) {
+  animation-delay: 6s;
+}
+#sevenbubble img:nth-child(4) {
+  animation-delay: 1s;
+}
+#sevenbubble img:nth-child(5) {
+  animation-delay: 5.5s;
+}
+#sevenbubble img:nth-child(6) {
+  animation-delay: 4.5s;
+}
+#sevenbubble img:nth-child(7) {
+  animation-delay: 3s;
 }
