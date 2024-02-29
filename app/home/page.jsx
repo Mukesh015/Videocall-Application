@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useSocket } from "@/components/provider/socket";
 
 export default function Home() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function Home() {
   const [email, setEmail] = useState(null);
   const [imgurl, setImgUrl] = useState(null);
   const [meetingCode, setMeetingCode] = useState("");
-
+  const socket = useSocket();
   const newMeetingHost = useCallback(
     async (e) => {
       e.preventDefault();
@@ -27,17 +28,25 @@ export default function Home() {
         );
         const result = await fetchedId.json();
         let sessionId = result.token;
-        router.push(`/meetings/${sessionId}`);
+        socket.emit("join-room", { email, roomId: sessionId });
       } catch (error) {
         console.log("failed to fetch session id server error", error);
       }
     },
-    [router, email]
+    [ email]
   );
-  const handleJoiningExistingRoom = useCallback(async () => {
-    router.push(`/meetings/${meetingCode}`);
-  }, [router]);
+  const handleJoiningExistingRoom = useCallback(async (e) => {
+    e.preventDefault();
+    socket.emit("join-room", { email, roomId: meetingCode });
+  }, [email,meetingCode]);
+  const handleJoinRoom = useCallback(
+    ({email,roomId}) => {
 
+      console.log(email,roomId);
+      router.push(`/meetings/${roomId}`)
+    },
+    [router]
+  );
   useEffect(() => {
     if (
       session &&
@@ -50,7 +59,12 @@ export default function Home() {
       setName(session.user.name);
       setEmail(session.user.email);
     }
-  }, [session]);
+    socket.on("join-room", handleJoinRoom);
+    return () => {
+      socket.off("join-room", handleJoinRoom);
+    };
+  }, [session,socket,handleJoinRoom]);
+  
   return (
     <>
       <div className="ml-20 flex">
