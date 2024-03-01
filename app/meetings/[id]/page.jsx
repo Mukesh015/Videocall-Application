@@ -4,7 +4,7 @@ import { useSocket } from "@/components/provider/socket";
 import PeerService from "@/components/provider/peer";
 
 export default function Meetings({}) {
-  const socket = useSocket();
+  const {socket,updateNego,nego} = useSocket();
   const Peerservice = new PeerService();
   const [remoteSocketId, setRemoteSocketId] = useState(null);
 
@@ -44,8 +44,9 @@ export default function Meetings({}) {
   }, [handleUserJoined, socket, handleIncommingCall, handleAcceptCall]);
 
   useEffect(() => {
-    if (PeerService.peer) {
-      PeerService.peer.addEventListener("track", (event) => {
+    console.log(Peerservice.peer)
+    if (Peerservice.peer) {
+      Peerservice.peer.addEventListener("track", (event) => {
         if (event.track.kind === "video") {
           // Create a new video element
           const remoteVideo = document.createElement("video");
@@ -60,7 +61,43 @@ export default function Meetings({}) {
         }
       });
     }
-  }, []);
+  }, [nego]);
+
+  const handleNegoNeeded = useCallback(async () => {
+    const offer = await PeerService.getOffer();
+    socket.emit("peer-nego-needed", { offer, to: remoteSocketId });
+    console.log("Negotiation")
+  }, [remoteSocketId, socket]);
+
+  
+  useEffect(() => {
+    Peerservice.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+    return () => {
+      Peerservice.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+    };
+  }, [handleNegoNeeded]);
+
+  const handleNego = useCallback(
+    async ({ from, offer }) => {
+      const ans = await peer.getAnswer(offer);
+      socket.emit("peer-nego-done", { to: from, ans });
+      console.log("Try to handle negotiation")
+    },[socket])
+    const handleNegoFinal = useCallback(async ({ ans }) => {
+      await PeerService.setLocalDescription(ans);
+      console.log("Negotiation Done");
+    }, [socket])
+
+
+useEffect(()=>{
+  socket.on('peer-nego-needed',handleNego)
+  socket.on('nego-final',handleNegoFinal)
+  return ()=>{
+        socket.off('peer-nego-needed',handleNego)
+        socket.on('nego-final',handleNegoFinal)
+
+      }
+},[socket,handleNego,handleNegoFinal])
   return (
     <>
       <h4>{remoteSocketId ? "Connected" : "No one in room"}</h4>

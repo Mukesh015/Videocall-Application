@@ -2,6 +2,7 @@
 import NextTopLoader from "nextjs-toploader";
 import { useState, useRef, useCallback, useEffect } from "react";
 import PeerService from "@/components/provider/peer";
+import { useSocket } from "@/components/provider/socket";
 
 export default function Layout({ children }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -13,6 +14,8 @@ export default function Layout({ children }) {
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
   const Peerservice = new PeerService();
+  const {socket,updateNego} = useSocket();
+
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
@@ -27,7 +30,8 @@ export default function Layout({ children }) {
     setShowParticipantsPopup(!showParticipantsPopup);
   };
 
-  const toggleVideo = async () => {
+  const toggleVideo = useCallback(async () => {
+    updateNego(true);
     setIsVideoEnabled((prevState) => !prevState);
     if (!isVideoEnabled) {
       try {
@@ -59,10 +63,12 @@ export default function Layout({ children }) {
       });
 
     }
-  };
+  },[updateNego,]);
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
   };
+ 
+    
 
   return (
     <>
