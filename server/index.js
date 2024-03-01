@@ -38,16 +38,20 @@ io.on("connection", (socket) => {
   socket.on("join-room",({email,roomId})=>{
     emailToSocketIdMap.set(email, socket.id)
     socketIdToEmailMap.set( socket.id,email)
-    setTimeout(() =>{
+
       io.to(roomId).emit("user-joined",{email,id:socket.id})
-      },1000);
+
     socket.join(roomId)
     io.to(socket.id).emit('join-room',{email,roomId})
     console.log("user joined",email,roomId)
   })
 
   socket.on('call-user',({to,offer})=>{
+    console.log(to)
+    setTimeout(()=>{
     io.to(to).emit('incomming-call',{from:socket.id,offer});
+    },1000)
+
   })
   socket.on("call-accepted", ({to,ans}) => {
     console.log(to)
