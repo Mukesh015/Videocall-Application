@@ -38,23 +38,28 @@ io.on("connection", (socket) => {
   socket.on("join-room", ({ email, roomId }) => {
     emailToSocketIdMap.set(email, socket.id);
     socketIdToEmailMap.set(socket.id, email);
-
     io.to(roomId).emit("user-joined", { email, id: socket.id });
-
     socket.join(roomId);
     io.to(socket.id).emit("join-room", { email, roomId });
     console.log("user joined", email, roomId);
   });
 
   socket.on("call-user", ({ to, offer }) => {
-    console.log(to);
     setTimeout(() => {
       io.to(to).emit("incomming-call", { from: socket.id, offer });
     }, 1000);
   });
   socket.on("call-accepted", ({ to, ans }) => {
-    console.log(to);
     io.to(to).emit("call-accepted", { from: socket.id, ans });
+  });
+  socket.on("peer-nego-needed", ({ to, offer }) => {
+    console.log("peer-nego-needed", offer);
+    io.to(to).emit("peer-nego-needed", { from: socket.id, offer });
+  });
+
+  socket.on("peer-nego-done", ({ to, ans }) => {
+    console.log("peer:nego:done", ans);
+    io.to(to).emit("nego-final", { from: socket.id, ans });
   });
 });
 app.listen(PORT, () => {

@@ -12,7 +12,7 @@ export default function Home() {
   const [email, setEmail] = useState(null);
   const [imgurl, setImgUrl] = useState(null);
   const [meetingCode, setMeetingCode] = useState("");
-  const socket = useSocket();
+  const {socket} = useSocket();
   
   const newMeetingHost = useCallback(
     async (e) => {
