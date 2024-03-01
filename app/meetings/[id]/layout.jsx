@@ -49,20 +49,15 @@ export default function Layout({ children }) {
         console.error("Error accessing video devices:", error);
       }
     } else {
-      // Stop and remove the video track from the peer connection
       console.log("Removed video track from peer connection");
-
-      // Stop the video track
-      stream.getTracks().forEach((track) => {
+      videoStream.getTracks().forEach((track) => {
         track.stop();
       });
 
-      // Remove the track from the peer connection
-      stream.getTracks().forEach((track) => {
+      videoStream.getTracks().forEach((track) => {
         Peerservice.peer.removeTrack(track);
       });
 
-      // Update UI or take any necessary actions
     }
   };
   const toggleScreenShare = async () => {
