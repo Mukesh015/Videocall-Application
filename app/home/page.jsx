@@ -13,6 +13,7 @@ export default function Home() {
   const [imgurl, setImgUrl] = useState(null);
   const [meetingCode, setMeetingCode] = useState("");
   const socket = useSocket();
+  
   const newMeetingHost = useCallback(
     async (e) => {
       e.preventDefault();
@@ -39,6 +40,7 @@ export default function Home() {
     e.preventDefault();
     socket.emit("join-room", { email, roomId: meetingCode });
   }, [email,meetingCode]);
+  
   const handleJoinRoom = useCallback(
     ({email,roomId}) => {
 

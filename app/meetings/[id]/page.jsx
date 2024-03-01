@@ -14,9 +14,9 @@ export default function Meetings({}) {
   }, [remoteSocketId]);
 
   useEffect(()=>{
-    socket.on('user-joined"',handleUserJoined)
+    socket.on('user-joined',handleUserJoined)
     return ()=>{
-      socket.off('user-joined"',handleUserJoined)
+      socket.off('user-joined',handleUserJoined)
     }
   },[handleUserJoined,socket]);
   return (
