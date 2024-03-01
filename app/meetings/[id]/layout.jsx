@@ -1,6 +1,7 @@
 "use client";
 import NextTopLoader from "nextjs-toploader";
 import { useState, useRef, useCallback, useEffect } from "react";
+import PeerService from "@/components/provider/peer";
 
 export default function Layout({ children }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -10,7 +11,8 @@ export default function Layout({ children }) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
+  const videoRef = useRef(null);
+  const Peerservice = new PeerService();
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
@@ -24,8 +26,44 @@ export default function Layout({ children }) {
   const toggleParticipantPopup = () => {
     setShowParticipantsPopup(!showParticipantsPopup);
   };
+
   const toggleVideo = async () => {
     setIsVideoEnabled((prevState) => !prevState);
+    if (!isVideoEnabled) {
+      try {
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+        });
+        setStream(videoStream); // Update stream state here
+        if (videoRef.current) {
+          videoRef.current.srcObject = videoStream;
+        }
+        // Add video track to the peer connection
+        if (Peerservice.peer && videoStream) {
+          videoStream.getTracks().forEach((track) => {
+            Peerservice.peer.addTrack(track, videoStream);
+          });
+          console.log("Added video track to peer connection");
+        }
+      } catch (error) {
+        console.error("Error accessing video devices:", error);
+      }
+    } else {
+      // Stop and remove the video track from the peer connection
+      console.log("Removed video track from peer connection");
+
+      // Stop the video track
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
+
+      // Remove the track from the peer connection
+      stream.getTracks().forEach((track) => {
+        Peerservice.peer.removeTrack(track);
+      });
+
+      // Update UI or take any necessary actions
+    }
   };
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
@@ -42,22 +80,19 @@ export default function Layout({ children }) {
               autoPlay
               playsInline
               style={{ height: "175px" }}
+              ref={videoRef}
             />
-          ) : (
-            <p></p> //Should be removed
-          )}
+          ) : null}
         </div>
         <div>
-          {remoteStream ? (
+          {stream ? (
             <video
-              ref={remoteStream}
+              ref={videoRef} // Assign the ref here
               autoPlay
               playsInline
               style={{ height: "575px" }}
             />
-          ) : (
-            <p></p> //Should be removed
-          )}
+          ) : null}
         </div>
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
