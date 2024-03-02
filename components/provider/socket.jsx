@@ -1,19 +1,19 @@
-"use client"
+"use client";
 
-import React, { useMemo,useState } from "react";
+import React, { useMemo, useState } from "react";
 import { io } from "socket.io-client";
 
-const SocketContext = React.createContext('');
+const SocketContext = React.createContext("");
 
 export const SocketProvider = ({ children }) => {
-  const [nego,setnego] = useState(false)
-  const updateNego = async()=>{
-    setnego(!nego);
-    console.log("state updated")
-  }
+  const [socketId, setSocketId] = useState(false);
+  const updateSocketId = async (id) => {
+    setSocketId(id);
+    console.log("Socket ID updated");
+  };
   const socket = useMemo(() => io(process.env.NEXT_PUBLIC_IO_DOMAIN), []);
   return (
-    <SocketContext.Provider value={{socket,updateNego,nego}}>
+    <SocketContext.Provider value={{ socket, updateSocketId, socketId }}>
       {children}
     </SocketContext.Provider>
   );
@@ -21,4 +21,4 @@ export const SocketProvider = ({ children }) => {
 
 export const useSocket = () => {
   return React.useContext(SocketContext);
-}
+};

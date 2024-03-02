@@ -5,6 +5,7 @@ import PeerService from "@/components/provider/peer";
 import { useSocket } from "@/components/provider/socket";
 
 export default function Layout({ children }) {
+  const { socket, updateSocketId, socketId } = useSocket();
   const [isRecording, setIsRecording] = useState(false);
   const [showChatPopup, setShowChatPopup] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
@@ -14,8 +15,8 @@ export default function Layout({ children }) {
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
   const Peerservice = new PeerService();
-  const {socket,updateNego} = useSocket();
-
+  const [remoteStream, setRemoteStream] = useState(null);
+  const recievedVideoRef = useRef(null);
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
@@ -31,49 +32,80 @@ export default function Layout({ children }) {
   };
 
   const toggleVideo = useCallback(async () => {
-    updateNego(true);
-    setIsVideoEnabled((prevState) => !prevState);
+    setIsVideoEnabled((prevState) => !prevState); // Toggle the video state
     if (!isVideoEnabled) {
+      // If video is enabled
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
-        setStream(videoStream); // Update stream state here
+
+        setStream(videoStream);
+
         if (videoRef.current) {
           videoRef.current.srcObject = videoStream;
         }
-        // Add video track to the peer connection
+
         if (Peerservice.peer && videoStream) {
           videoStream.getTracks().forEach((track) => {
             Peerservice.peer.addTrack(track, videoStream);
+            console.log("Added video track to peer connection");
           });
-          console.log("Added video track to peer connection");
         }
       } catch (error) {
         console.error("Error accessing video devices:", error);
       }
     } else {
-      // Stop and remove the video track from the peer connection
-      console.log("Removed video track from peer connection");
+      console.log("Removing video track from peer connection");
 
-      // Stop the video track
-      stream.getTracks().forEach((track) => {
-        track.stop();
-      });
+      if (Peerservice.peer && stream) {
+        stream.getTracks().forEach((track) => {
+          Peerservice.peer.getSenders().forEach((sender) => {
+            if (sender.track === track) {
+              Peerservice.peer.removeTrack(sender);
+              console.log("Removed video track from peer connection");
+            }
+          });
+        });
+      }
 
-      // Remove the track from the peer connection
-      stream.getTracks().forEach((track) => {
-        Peerservice.peer.removeTrack(track);
-      });
-
-      // Update UI or take any necessary actions
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        setStream(null);
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+      }
     }
-  },[updateNego,]);
+  }, [setStream, isVideoEnabled, videoRef]);
+
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
   };
- 
-    
+
+  const handleNegoNeeded = useCallback(async () => {
+    console.log("Negotiation");
+    const offer = await PeerService.getOffer();
+    socket.emit("peer-nego-needed", { offer, to: socketId });
+  }, [socket]);
+
+  useEffect(() => {
+    Peerservice.peer.addEventListener("negotiationneeded", handleNegoNeeded); 
+    return()=>{
+      Peerservice.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+    }
+  }, [handleNegoNeeded]);
+
+  useEffect(() => {
+    Peerservice.peer.addEventListener("track", async (ev) => {
+      const remoteStream = ev.streams;
+      console.log("GOT TRACKS!!");
+      if (recievedVideoRef.current) {
+        recievedVideoRef.current.srcObject = remoteStream[0];
+      }
+      setRemoteStream(remoteStream[0]);
+    });
+  }, [stream]);
 
   return (
     <>
@@ -91,9 +123,9 @@ export default function Layout({ children }) {
           ) : null}
         </div>
         <div>
-          {stream ? (
+          {remoteStream ? (
             <video
-              ref={videoRef} // Assign the ref here
+              ref={recievedVideoRef} // Assign the ref here
               autoPlay
               playsInline
               style={{ height: "575px" }}
