@@ -15,6 +15,8 @@ export default function Layout({ children }) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
+  const recievedVideoRef = useRef(null);
+  
   const {socket,updateNego} = useSocket();
   const [remoteStream,setRemoteStream]=useState(null)
 
@@ -53,7 +55,6 @@ export default function Layout({ children }) {
           videoStream.getTracks().forEach((track) => {
             peer.peer.addTrack(track, videoStream);
             console.log("Added video track to peer connection");
-            console.log(videoStream)
           });
         }
       } catch (error) {
@@ -81,7 +82,7 @@ export default function Layout({ children }) {
         }
       }
     }
-  }, [updateNego, setStream, isVideoEnabled, videoRef, peer.peer]);
+  }, [updateNego, setStream, isVideoEnabled, videoRef, peer.peer,stream]);
   
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
@@ -92,10 +93,9 @@ export default function Layout({ children }) {
     peer.peer.addEventListener("track", async (ev) => {
       const remoteStream = ev.streams;
       console.log("GOT TRACKS!!");
-      setRemoteStream(remoteStream[0]);
-      console.log(remoteStream[0]);
+            setRemoteStream(remoteStream[0]);
     });
-  }, [stream,setRemoteStream]);
+  }, [peer]);
 
   return (
     <>
@@ -113,7 +113,7 @@ export default function Layout({ children }) {
           ) : null}
         </div>
         <div>
-        {remoteStream && (
+        {remoteStream ? (
         <>
           <h1>Remote Stream</h1>
           <ReactPlayer
@@ -124,7 +124,7 @@ export default function Layout({ children }) {
             url={remoteStream}
           />
         </>
-      )}
+      ):null}
         </div>
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">

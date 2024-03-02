@@ -46,8 +46,8 @@ export default function Meetings({}) {
   
 
   const handleNegoNeeded = useCallback(async () => {
-    const offer = await peer.getOffer();
-    socket.emit("peer-nego-needed", { offer, to: remoteSocketId });
+    const localoffer = await peer.getOffer();
+    socket.emit("call-user", { offer:localoffer, to: remoteSocketId });
     console.log("Negotiation")
   }, [remoteSocketId, socket]);
 
@@ -59,27 +59,27 @@ export default function Meetings({}) {
     };
   }, [handleNegoNeeded]);
 
-  const handleNego = useCallback(
-    async ({ from, offer }) => {
-      const ans = await peer.getAnswer(offer);
-      socket.emit("peer-nego-done", { to: from, ans });
-      console.log("Try to handle negotiation")
-    },[socket])
-    const handleNegoFinal = useCallback(async ({ ans }) => {
+//   const handleNego = useCallback(
+//     async ({ from, offer }) => {
+//       const ans = await peer.getAnswer(offer);
+//       socket.emit("peer-nego-done", { to: from, ans });
+//       console.log("Try to handle negotiation")
+//     },[socket])
+//     const handleNegoFinal = useCallback(async ({ ans }) => {
 
-      console.log("Negotiation Done");
-    }, [socket])
+//       console.log("Negotiation Done");
+//     }, [socket])
 
 
-useEffect(()=>{
-  socket.on('peer-nego-needed',handleNego)
-  socket.on('nego-final',handleNegoFinal)
-  return ()=>{
-        socket.off('peer-nego-needed',handleNego)
-        socket.on('nego-final',handleNegoFinal)
+// useEffect(()=>{
+//   socket.on('peer-nego-needed',handleNego)
+//   socket.on('nego-final',handleNegoFinal)
+//   return ()=>{
+//         socket.off('peer-nego-needed',handleNego)
+//         socket.on('nego-final',handleNegoFinal)
 
-      }
-},[socket,handleNego,handleNegoFinal])
+//       }
+// },[socket,handleNego,handleNegoFinal])
   return (
     <>
       <h4>{remoteSocketId ? "Connected" : "No one in room"}</h4>
