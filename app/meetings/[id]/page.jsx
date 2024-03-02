@@ -66,6 +66,7 @@ export default function Meetings({}) {
       console.log("Try to handle negotiation")
     },[socket])
     const handleNegoFinal = useCallback(async ({ ans }) => {
+
       console.log("Negotiation Done");
     }, [socket])
 
