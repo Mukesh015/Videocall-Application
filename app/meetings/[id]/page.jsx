@@ -1,18 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/components/provider/socket";
-import PeerService from "@/components/provider/peer";
+import peer  from "@/components/provider/peer";
 
 export default function Meetings({}) {
   const {socket,updateNego,nego} = useSocket();
-  const Peerservice = new PeerService();
-  const [remoteSocketId, setRemoteSocketId] = useState(null);
 
+  const [remoteSocketId, setRemoteSocketId] = useState(null);
   const handleUserJoined = useCallback(
     async ({ email, id }) => {
       console.log(`Email ${email} joined room ${id}`);
 
-      const offer = await Peerservice.getOffer();
+      const offer = await peer.getOffer();
       socket.emit("call-user", { to: id, offer });
       setRemoteSocketId(id);
     },
@@ -22,14 +21,14 @@ export default function Meetings({}) {
   const handleIncommingCall = useCallback(
     async ({ from, offer }) => {
       console.log(`Incoming Call`, from, offer);
-      const ans = await Peerservice.getAnswer(offer);
+      const ans = await peer.getAnswer(offer);
       setRemoteSocketId(from);
       socket.emit("call-accepted", { to: from, ans });
     },
     [socket]
   );
   const handleAcceptCall = useCallback(async ({ from, ans }) => {
-    await Peerservice.setLocalDescription(ans);
+    await peer.setLocalDescription(ans);
     console.log(`call got accepted`, from);
   }, []);
   useEffect(() => {
@@ -43,37 +42,20 @@ export default function Meetings({}) {
     };
   }, [handleUserJoined, socket, handleIncommingCall, handleAcceptCall]);
 
-  useEffect(() => {
-    console.log(Peerservice.peer)
-    if (Peerservice.peer) {
-      Peerservice.peer.addEventListener("track", (event) => {
-        if (event.track.kind === "video") {
-          // Create a new video element
-          const remoteVideo = document.createElement("video");
-          remoteVideo.autoplay = true;
-          remoteVideo.srcObject = new MediaStream([event.track]);
-
-          // Append the video element to a container in the UI
-          const videoContainer = document.getElementById(
-            "remoteVideoContainer"
-          );
-          videoContainer.appendChild(remoteVideo);
-        }
-      });
-    }
-  }, [nego]);
+ 
+  
 
   const handleNegoNeeded = useCallback(async () => {
-    const offer = await PeerService.getOffer();
+    const offer = await peer.getOffer();
     socket.emit("peer-nego-needed", { offer, to: remoteSocketId });
     console.log("Negotiation")
   }, [remoteSocketId, socket]);
 
   
   useEffect(() => {
-    Peerservice.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+    peer .peer.addEventListener("negotiationneeded", handleNegoNeeded);
     return () => {
-      Peerservice.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+      peer .peer.removeEventListener("negotiationneeded", handleNegoNeeded);
     };
   }, [handleNegoNeeded]);
 
@@ -84,7 +66,6 @@ export default function Meetings({}) {
       console.log("Try to handle negotiation")
     },[socket])
     const handleNegoFinal = useCallback(async ({ ans }) => {
-      await PeerService.setLocalDescription(ans);
       console.log("Negotiation Done");
     }, [socket])
 

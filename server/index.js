@@ -53,12 +53,12 @@ io.on("connection", (socket) => {
     io.to(to).emit("call-accepted", { from: socket.id, ans });
   });
   socket.on("peer-nego-needed", ({ to, offer }) => {
-    console.log("peer-nego-needed", offer);
+    console.log("peer-nego-needed");
     io.to(to).emit("peer-nego-needed", { from: socket.id, offer });
   });
 
   socket.on("peer-nego-done", ({ to, ans }) => {
-    console.log("peer:nego:done", ans);
+    console.log("peer:nego:done");
     io.to(to).emit("nego-final", { from: socket.id, ans });
   });
 });

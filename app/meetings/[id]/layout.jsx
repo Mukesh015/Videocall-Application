@@ -1,8 +1,9 @@
 "use client";
 import NextTopLoader from "nextjs-toploader";
 import { useState, useRef, useCallback, useEffect } from "react";
-import PeerService from "@/components/provider/peer";
+import peer from "@/components/provider/peer";
 import { useSocket } from "@/components/provider/socket";
+
 
 export default function Layout({ children }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -13,8 +14,9 @@ export default function Layout({ children }) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
-  const Peerservice = new PeerService();
   const {socket,updateNego} = useSocket();
+  const [remoteStream,setRemoteStream]=useState(null)
+  const recievedVideoRef = useRef(null);
 
 
   const toggleChatPopup = () => {
@@ -31,44 +33,69 @@ export default function Layout({ children }) {
   };
 
   const toggleVideo = useCallback(async () => {
-    updateNego(true);
-    setIsVideoEnabled((prevState) => !prevState);
-    if (!isVideoEnabled) {
+    setIsVideoEnabled((prevState) => !prevState); 
+    updateNego(true); 
+    
+    if (!isVideoEnabled) { 
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
-        setStream(videoStream); // Update stream state here
+  
+        setStream(videoStream);
+  
         if (videoRef.current) {
           videoRef.current.srcObject = videoStream;
         }
-        // Add video track to the peer connection
-        if (Peerservice.peer && videoStream) {
+  
+        if (peer.peer && videoStream) {
           videoStream.getTracks().forEach((track) => {
-            Peerservice.peer.addTrack(track, videoStream);
+            peer.peer.addTrack(track, videoStream);
+            console.log("Added video track to peer connection");
           });
-          console.log("Added video track to peer connection");
         }
       } catch (error) {
         console.error("Error accessing video devices:", error);
       }
-    } else {
-      console.log("Removed video track from peer connection");
-      videoStream.getTracks().forEach((track) => {
-        track.stop();
-      });
-
-      videoStream.getTracks().forEach((track) => {
-        Peerservice.peer.removeTrack(track);
-      });
-
+    } else { 
+      console.log("Removing video track from peer connection");
+  
+      if (peer.peer && stream) {
+        stream.getTracks().forEach((track) => {
+          peer.peer.getSenders().forEach((sender) => {
+            if (sender.track === track) {
+              peer.peer.removeTrack(sender);
+              console.log("Removed video track from peer connection");
+            }
+          });
+        });
+      }
+  
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        setStream(null);
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+      }
     }
-  },[updateNego,]);
+  }, [updateNego, setStream, isVideoEnabled, videoRef, peer.peer]);
+  
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
   };
  
-    
+  useEffect(() => {
+    console.log('try to catch track');
+    peer.peer.addEventListener("track", async (ev) => {
+      const remoteStream = ev.streams;
+      console.log("GOT TRACKS!!");
+      if (recievedVideoRef.current) {
+        recievedVideoRef.current.srcObject = remoteStream[0];
+      }
+      setRemoteStream(remoteStream[0]);
+    });
+  }, [stream,setRemoteStream]);
 
   return (
     <>
@@ -86,14 +113,13 @@ export default function Layout({ children }) {
           ) : null}
         </div>
         <div>
-          {stream ? (
-            <video
-              ref={videoRef} // Assign the ref here
+        <video
               autoPlay
               playsInline
               style={{ height: "575px" }}
+              ref={recievedVideoRef}
             />
-          ) : null}
+         
         </div>
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
