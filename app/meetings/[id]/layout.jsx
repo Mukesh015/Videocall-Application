@@ -1,11 +1,12 @@
 "use client";
 import NextTopLoader from "nextjs-toploader";
 import { useState, useRef, useCallback, useEffect } from "react";
-import PeerService from "@/components/provider/peer";
+import peer from "@/components/provider/peer";
+import ReactPlayer from "react-player";
 import { useSocket } from "@/components/provider/socket";
 
 export default function Layout({ children }) {
-  const { socket, updateSocketId, socketId } = useSocket();
+  const { socket, socketId,updateToggleVideo } = useSocket();
   const [isRecording, setIsRecording] = useState(false);
   const [showChatPopup, setShowChatPopup] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
@@ -14,9 +15,7 @@ export default function Layout({ children }) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
-  const Peerservice = new PeerService();
   const [remoteStream, setRemoteStream] = useState(null);
-  const recievedVideoRef = useRef(null);
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
@@ -32,9 +31,8 @@ export default function Layout({ children }) {
   };
 
   const toggleVideo = useCallback(async () => {
-    setIsVideoEnabled((prevState) => !prevState); // Toggle the video state
+    setIsVideoEnabled((prevState) => !prevState);
     if (!isVideoEnabled) {
-      // If video is enabled
       try {
         const videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -46,10 +44,11 @@ export default function Layout({ children }) {
           videoRef.current.srcObject = videoStream;
         }
 
-        if (Peerservice.peer && videoStream) {
+        if (peer.peer && videoStream) {
           videoStream.getTracks().forEach((track) => {
-            Peerservice.peer.addTrack(track, videoStream);
+            peer.peer.addTrack(track, videoStream);
             console.log("Added video track to peer connection");
+            console.log(videoStream);
           });
         }
       } catch (error) {
@@ -58,11 +57,11 @@ export default function Layout({ children }) {
     } else {
       console.log("Removing video track from peer connection");
 
-      if (Peerservice.peer && stream) {
+      if (peer.peer && stream) {
         stream.getTracks().forEach((track) => {
-          Peerservice.peer.getSenders().forEach((sender) => {
+          peer.peer.getSenders().forEach((sender) => {
             if (sender.track === track) {
-              Peerservice.peer.removeTrack(sender);
+              peer.peer.removeTrack(sender);
               console.log("Removed video track from peer connection");
             }
           });
@@ -77,35 +76,58 @@ export default function Layout({ children }) {
         }
       }
     }
-  }, [setStream, isVideoEnabled, videoRef]);
+  }, [setStream, isVideoEnabled, videoRef, peer.peer]);
 
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
   };
 
-  const handleNegoNeeded = useCallback(async () => {
-    console.log("Negotiation");
-    const offer = await PeerService.getOffer();
-    socket.emit("peer-nego-needed", { offer, to: socketId });
-  }, [socket]);
-
   useEffect(() => {
-    Peerservice.peer.addEventListener("negotiationneeded", handleNegoNeeded); 
-    return()=>{
-      Peerservice.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
-    }
-  }, [handleNegoNeeded]);
-
-  useEffect(() => {
-    Peerservice.peer.addEventListener("track", async (ev) => {
+    console.log("try to catch track");
+    peer.peer.addEventListener("track", async (ev) => {
       const remoteStream = ev.streams;
       console.log("GOT TRACKS!!");
-      if (recievedVideoRef.current) {
-        recievedVideoRef.current.srcObject = remoteStream[0];
-      }
       setRemoteStream(remoteStream[0]);
+      console.log(remoteStream[0]);
     });
-  }, [stream]);
+  }, [stream, setRemoteStream]);
+  const handleNegoNeeded = useCallback(async () => {
+    const offer = await peer.getOffer();
+    socket.emit("peer-nego-needed", { offer, to: socketId });
+    console.log("Negotiation");
+  }, [socketId, socket]);
+
+  useEffect(() => {
+    peer.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+    return () => {
+      peer.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+    };
+  }, [handleNegoNeeded]);
+
+  const handleNego = useCallback(
+    async ({ from, offer }) => {
+      const ans = await peer.getAnswer(offer);
+      socket.emit("peer-nego-done", { to: from, ans });
+      console.log("Try to handle negotiation");
+    },
+    [socket]
+  );
+  const handleNegoFinal = useCallback(
+    async ({ ans }) => {
+      const negoans = await peer.setLocalDescription(ans);
+      console.log("Negotiation Done ", negoans);
+    },
+    [socket]
+  );
+
+  useEffect(() => {
+    socket.on("peer-nego-needed", handleNego);
+    socket.on("nego-final", handleNegoFinal);
+    return () => {
+      socket.off("peer-nego-needed", handleNego);
+      socket.on("nego-final", handleNegoFinal);
+    };
+  }, [socket, handleNego, handleNegoFinal]);
 
   return (
     <>
@@ -123,14 +145,18 @@ export default function Layout({ children }) {
           ) : null}
         </div>
         <div>
-          {remoteStream ? (
-            <video
-              ref={recievedVideoRef} // Assign the ref here
-              autoPlay
-              playsInline
-              style={{ height: "575px" }}
-            />
-          ) : null}
+          {remoteStream && (
+            <>
+              <h1>Remote Stream</h1>
+              <ReactPlayer
+                playing
+                muted
+                height="100px"
+                width="200px"
+                url={remoteStream}
+              />
+            </>
+          )}
         </div>
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">

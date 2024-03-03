@@ -1,64 +1,38 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/components/provider/socket";
-import PeerService from "@/components/provider/peer";
+import peer from "@/components/provider/peer";
 
 export default function Meetings({}) {
-  const { socket, updateSocketId } = useSocket();
-  const Peerservice = new PeerService();
+  const { socket,updateSocketId,toggoleVideo} = useSocket();
   const [remoteSocketId, setRemoteSocketId] = useState(null);
-
+  
   const handleUserJoined = useCallback(
     async ({ email, id }) => {
       console.log(`Email ${email} joined room ${id}`);
-      const offer = await Peerservice.getOffer();
+
+      const offer = await peer.getOffer();
       socket.emit("call-user", { to: id, offer });
       setRemoteSocketId(id);
+      updateSocketId(id);
     },
-    [remoteSocketId, socket]
-  );
-
-  const handleNego = useCallback(
-    async ({ from, offer }) => {
-      const ans = await peer.getAnswer(offer);
-      socket.emit("peer-nego-done", { to: from, ans });
-      console.log("Try to handle negotiation");
-    },
-    [socket]
-  );
-
-  const handleNegoFinal = useCallback(
-    async ({ ans }) => {
-      await PeerService.setLocalDescription(ans);
-      console.log("Negotiation Done");
-    },
-    [socket]
+    [remoteSocketId, socket,updateSocketId]
   );
 
   const handleIncommingCall = useCallback(
     async ({ from, offer }) => {
       console.log(`Incoming Call`, from, offer);
-      const ans = await Peerservice.getAnswer(offer);
+      const ans = await peer.getAnswer(offer);
       setRemoteSocketId(from);
-      updateSocketId(remoteSocketId);
+      updateSocketId(from);
       socket.emit("call-accepted", { to: from, ans });
     },
-    [socket]
+    [socket,updateSocketId]
   );
   const handleAcceptCall = useCallback(async ({ from, ans }) => {
-    await Peerservice.setLocalDescription(ans);
+    await peer.setLocalDescription(ans);
     console.log(`call got accepted`, from);
   }, []);
-
-  useEffect(() => {
-    socket.on("peer-nego-needed", handleNego);
-    socket.on("nego-final", handleNegoFinal);
-    return () => {
-      socket.off("peer-nego-needed", handleNego);
-      socket.on("nego-final", handleNegoFinal);
-    };
-  }, [socket, handleNego, handleNegoFinal]);
-
   useEffect(() => {
     socket.on("user-joined", handleUserJoined);
     socket.on("incomming-call", handleIncommingCall);
@@ -69,6 +43,7 @@ export default function Meetings({}) {
       socket.off("call-accepted", handleAcceptCall);
     };
   }, [handleUserJoined, socket, handleIncommingCall, handleAcceptCall]);
+
 
   return (
     <>
