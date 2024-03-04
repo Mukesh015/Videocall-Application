@@ -4,19 +4,17 @@ import { useSocket } from "@/components/provider/socket";
 import peer from "@/components/provider/peer";
 
 export default function Meetings({}) {
-  const { socket,updateSocketId,toggoleVideo} = useSocket();
+  const { socket } = useSocket();
+
   const [remoteSocketId, setRemoteSocketId] = useState(null);
-  
   const handleUserJoined = useCallback(
     async ({ email, id }) => {
       console.log(`Email ${email} joined room ${id}`);
-
       const offer = await peer.getOffer();
       socket.emit("call-user", { to: id, offer });
       setRemoteSocketId(id);
-      updateSocketId(id);
     },
-    [remoteSocketId, socket,updateSocketId]
+    [remoteSocketId, socket]
   );
 
   const handleIncommingCall = useCallback(
@@ -24,10 +22,9 @@ export default function Meetings({}) {
       console.log(`Incoming Call`, from, offer);
       const ans = await peer.getAnswer(offer);
       setRemoteSocketId(from);
-      updateSocketId(from);
       socket.emit("call-accepted", { to: from, ans });
     },
-    [socket,updateSocketId]
+    [socket]
   );
   const handleAcceptCall = useCallback(async ({ from, ans }) => {
     await peer.setLocalDescription(ans);
@@ -44,6 +41,18 @@ export default function Meetings({}) {
     };
   }, [handleUserJoined, socket, handleIncommingCall, handleAcceptCall]);
 
+  const handleNegoNeeded = useCallback(async () => {
+    const localoffer = await peer.getOffer();
+    socket.emit("call-user", { offer: localoffer, to: remoteSocketId });
+    console.log("Negotiation");
+  }, [remoteSocketId, socket]);
+
+  useEffect(() => {
+    peer.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+    return () => {
+      peer.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+    };
+  }, [handleNegoNeeded]);
 
   return (
     <>

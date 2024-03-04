@@ -6,7 +6,6 @@ import ReactPlayer from "react-player";
 import { useSocket } from "@/components/provider/socket";
 
 export default function Layout({ children }) {
-  const { socket, socketId,updateToggleVideo } = useSocket();
   const [isRecording, setIsRecording] = useState(false);
   const [showChatPopup, setShowChatPopup] = useState(false);
   const [showInfoPopup, setShowInfoPopup] = useState(false);
@@ -14,8 +13,9 @@ export default function Layout({ children }) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
-  const videoRef = useRef(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  const videoRef = useRef(null);
+  const { socket } = useSocket();
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
@@ -37,32 +37,27 @@ export default function Layout({ children }) {
         const videoStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
-
         setStream(videoStream);
-
         if (videoRef.current) {
           videoRef.current.srcObject = videoStream;
         }
-
         if (peer.peer && videoStream) {
           videoStream.getTracks().forEach((track) => {
             peer.peer.addTrack(track, videoStream);
-            console.log("Added video track to peer connection");
-            console.log(videoStream);
+            console.log("Added video track to peer connection", videoStream);
           });
         }
       } catch (error) {
         console.error("Error accessing video devices:", error);
       }
     } else {
-      console.log("Removing video track from peer connection");
-
+      socket.emit("video-off");
       if (peer.peer && stream) {
         stream.getTracks().forEach((track) => {
           peer.peer.getSenders().forEach((sender) => {
             if (sender.track === track) {
               peer.peer.removeTrack(sender);
-              console.log("Removed video track from peer connection");
+              console.log("Removed video track from peer connection", stream);
             }
           });
         });
@@ -73,109 +68,87 @@ export default function Layout({ children }) {
         setStream(null);
         if (videoRef.current) {
           videoRef.current.srcObject = null;
+          console.log("remove video track from local source", stream);
         }
       }
     }
-  }, [setStream, isVideoEnabled, videoRef, peer.peer]);
+  }, [setStream, isVideoEnabled, videoRef, stream, remoteStream]);
 
   const toggleScreenShare = async () => {
     setIsScreenSharing((prevState) => !prevState);
   };
 
-  useEffect(() => {
-    console.log("try to catch track");
-    peer.peer.addEventListener("track", async (ev) => {
+  const handleEventListenTracks = useCallback(
+    async (ev) => {
       const remoteStream = ev.streams;
-      console.log("GOT TRACKS!!");
-      setRemoteStream(remoteStream[0]);
-      console.log(remoteStream[0]);
-    });
-  }, [stream, setRemoteStream]);
-  const handleNegoNeeded = useCallback(async () => {
-    const offer = await peer.getOffer();
-    socket.emit("peer-nego-needed", { offer, to: socketId });
-    console.log("Negotiation");
-  }, [socketId, socket]);
+      if (remoteStream) {
+        console.log("GOT TRACKS!!");
+        setRemoteStream(remoteStream[0]);
+      } else {
+        console.log("No TRACKS");
+      }
+    },
+    [stream]
+  );
+  const handleReRender = useCallback(async () => {
+    setRemoteStream(null);
+  }, [setRemoteStream]);
+  useEffect(() => {
+    peer.peer.addEventListener("track", handleEventListenTracks);
+    return () => {
+      peer.peer.removeEventListener("track", handleEventListenTracks);
+    };
+  }, [peer, handleEventListenTracks]);
 
   useEffect(() => {
-    peer.peer.addEventListener("negotiationneeded", handleNegoNeeded);
+    socket.on("re-render", handleReRender);
     return () => {
-      peer.peer.removeEventListener("negotiationneeded", handleNegoNeeded);
+      socket.off("re-render", handleReRender);
     };
-  }, [handleNegoNeeded]);
-
-  const handleNego = useCallback(
-    async ({ from, offer }) => {
-      const ans = await peer.getAnswer(offer);
-      socket.emit("peer-nego-done", { to: from, ans });
-      console.log("Try to handle negotiation");
-    },
-    [socket]
-  );
-  const handleNegoFinal = useCallback(
-    async ({ ans }) => {
-      const negoans = await peer.setLocalDescription(ans);
-      console.log("Negotiation Done ", negoans);
-    },
-    [socket]
-  );
-
-  useEffect(() => {
-    socket.on("peer-nego-needed", handleNego);
-    socket.on("nego-final", handleNegoFinal);
-    return () => {
-      socket.off("peer-nego-needed", handleNego);
-      socket.on("nego-final", handleNegoFinal);
-    };
-  }, [socket, handleNego, handleNegoFinal]);
+  }, [handleReRender, stream]);
 
   return (
     <>
       <NextTopLoader />
       <div className="flex">
-        <div className="mt-5 ml-5 max-w-5xl"></div>
-        <div className="mt-5 ml-5 max-w-5xl">
-          {isVideoEnabled ? (
-            <video
-              autoPlay
-              playsInline
-              style={{ height: "175px" }}
-              ref={videoRef}
-            />
+        <div>
+          {remoteStream ? (
+            <div>
+              <h1>Remote Stream</h1>
+              <ReactPlayer playing muted height="175px" url={remoteStream} />
+            </div>
           ) : null}
         </div>
-        <div>
-          {remoteStream && (
-            <>
-              <h1>Remote Stream</h1>
-              <ReactPlayer
-                playing
-                muted
-                height="100px"
-                width="200px"
-                url={remoteStream}
+        <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
+          {isVideoEnabled ? (
+            <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
+              <video
+                autoPlay
+                playsInline
+                style={{ height: "100%", width: "100%" }}
+                ref={videoRef}
               />
-            </>
+            </div>
+          ) : (
+            <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
+              <div className="flex flex-col items-center">
+                <img
+                  className="w-24 h-24 mb-3 mt-2 rounded-full shadow-lg"
+                  src="https://e7.pngegg.com/pngimages/799/987/png-clipart-computer-icons-avatar-icon-design-avatar-heroes-computer-wallpaper-thumbnail.png"
+                  alt="Your image"
+                />
+                <h5 className="mb-1 text-xl font-medium text-gray-900 dark:text-white">
+                  Mukesh Gupta
+                </h5>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Web Designer
+                </span>
+              </div>
+            </div>
           )}
         </div>
-        <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
-          <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
-            <div className="flex flex-col items-center">
-              <img
-                className="w-24 h-24 mb-3 mt-2 rounded-full shadow-lg"
-                src="https://e7.pngegg.com/pngimages/799/987/png-clipart-computer-icons-avatar-icon-design-avatar-heroes-computer-wallpaper-thumbnail.png"
-                alt="Your image"
-              />
-              <h5 className="mb-1 text-xl font-medium text-gray-900 dark:text-white">
-                Mukesh Gupta
-              </h5>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Web Designer
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
+
       <div className="mt-12 ml-5 fixed bottom-8">
         <ul className="flex">
           <li className="w-96">Mukesh Gupta | 10-02-2024, 10:53</li>
