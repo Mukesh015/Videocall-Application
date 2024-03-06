@@ -67,8 +67,8 @@ io.on("connection", (socket) => {
   });
   socket.on("video-off",()=>{
     console.log("video-off");
-    console.log(host[0])
-    io.to(host).emit('re-render');
+    console.log(host)
+    io.to(host[0]).emit('re-render');
   })
 });
 app.listen(PORT, () => {

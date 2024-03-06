@@ -13,16 +13,42 @@ export default function Layout({ children }) {
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
+  const [audiostream, setAudioStream] = useState(null);
+
   const [remoteStream, setRemoteStream] = useState(null);
+  const [remoteAudioStream, setRemoteAudioStream] = useState(null);
+
   const videoRef = useRef(null);
+  const audioRef = useRef(null);
+
   const { socket } = useSocket();
 
   const toggleChatPopup = () => {
     setShowChatPopup(!showChatPopup);
   };
-  const toggleRecording = () => {
+  const toggleRecording =useCallback(async() => {
     setIsRecording((prevState) => !prevState);
-  };
+    if (!isRecording) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        setAudioStream(audioStream);
+        if (audioRef.current) {
+          audioRef.current.srcObject = audioStream;
+        }
+        if (peer.peer && audioStream) {
+          audioStream.getTracks().forEach((audiotrack) => {
+            peer.peer.addTrack(audiotrack, audioStream);
+            console.log("Added video track to peer connection", audioStream);
+          });
+        }
+      }
+        catch (error) {
+          console.error("Error accessing video devices:", error);
+        }
+      }
+  },[isRecording,setAudioStream]);
   const toggleInfoPopup = () => {
     setShowInfoPopup(!showInfoPopup);
   };
@@ -95,8 +121,12 @@ export default function Layout({ children }) {
   }, [setRemoteStream]);
   useEffect(() => {
     peer.peer.addEventListener("track", handleEventListenTracks);
+
+
     return () => {
       peer.peer.removeEventListener("track", handleEventListenTracks);
+  
+
     };
   }, [peer, handleEventListenTracks]);
 
@@ -115,10 +145,15 @@ export default function Layout({ children }) {
           {remoteStream ? (
             <div>
               <h1>Remote Stream</h1>
-              <ReactPlayer playing muted height="175px" url={remoteStream} />
+              <ReactPlayer playing  height="175px" url={remoteStream} />
             </div>
           ) : null}
         </div>
+
+        {/* {isRecording ? (
+              <ReactPlayer playing  url={audiostream} />
+          ) : null} */}
+   
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           {isVideoEnabled ? (
             <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
@@ -160,7 +195,7 @@ export default function Layout({ children }) {
               onClick={toggleRecording}
               className="bg-white rounded-xl ml-5"
             >
-              {isRecording ? (
+              {!isRecording ? (
                 <svg
                   className="h-10 w-14 bg-red-500 rounded-lg hover:bg-slate-400 hover:rounded-xl"
                   xmlns="http://www.w3.org/2000/svg"
