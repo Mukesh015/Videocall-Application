@@ -17,8 +17,6 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 app.use(bodyParser.json());
 
-let host = [];
-
 app.get("/api/generatesessionid", (req, res) => {
   const length = 9;
   const alphabet = "abcdefghijklmnopqrstuvwxyz";
@@ -40,18 +38,16 @@ io.on("connection", (socket) => {
   socket.on("join-room", ({ email, roomId }) => {
     emailToSocketIdMap.set(email, socket.id);
     socketIdToEmailMap.set(socket.id, email);
-    host.push(socket.id);
     io.to(roomId).emit("user-joined", { email, id: socket.id });
     socket.join(roomId);
     io.to(socket.id).emit("join-room", { email, roomId });
     console.log("user joined", email, roomId);
   });
 
-  socket.on("call-user", ({ to, offer }) => {
-    console.log(host)
+  socket.on("call-user", ({ to, offer }) => { 
     setTimeout(() => {
       io.to(to).emit("incomming-call", { from: socket.id, offer });
-    },300);
+    }, 300);
   });
   socket.on("call-accepted", ({ to, ans }) => {
     io.to(to).emit("call-accepted", { from: socket.id, ans });
@@ -65,11 +61,10 @@ io.on("connection", (socket) => {
     console.log("peer:nego:done");
     io.to(to).emit("nego-final", { from: socket.id, ans });
   });
-  socket.on("video-off",()=>{
+  socket.on("video-off", () => {
     console.log("video-off");
-    console.log(host)
-    io.to(host[0]).emit('re-render');
-  })
+    io.emit("re-render");
+  });
 });
 app.listen(PORT, () => {
   console.log(`Server listening from http://localhost:${PORT}`);

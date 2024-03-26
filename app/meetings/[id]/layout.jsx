@@ -14,10 +14,7 @@ export default function Layout({ children }) {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [stream, setStream] = useState(null);
   const [audiostream, setAudioStream] = useState(null);
-
   const [remoteStream, setRemoteStream] = useState(null);
-  const [remoteAudioStream, setRemoteAudioStream] = useState(null);
-
   const videoRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -40,7 +37,7 @@ export default function Layout({ children }) {
         if (peer.peer && audioStream) {
           audioStream.getTracks().forEach((audiotrack) => {
             peer.peer.addTrack(audiotrack, audioStream);
-            console.log("Added video track to peer connection", audioStream);
+            console.log("Added audio track to peer connection", audioStream);
           });
         }
       }
@@ -49,6 +46,7 @@ export default function Layout({ children }) {
         }
       }
   },[isRecording,setAudioStream]);
+
   const toggleInfoPopup = () => {
     setShowInfoPopup(!showInfoPopup);
   };
@@ -108,7 +106,7 @@ export default function Layout({ children }) {
     async (ev) => {
       const remoteStream = ev.streams;
       if (remoteStream) {
-        console.log("GOT TRACKS!!");
+        console.log("GOT TRACKS!! for video", remoteStream);
         setRemoteStream(remoteStream[0]);
       } else {
         console.log("No TRACKS");
@@ -119,14 +117,12 @@ export default function Layout({ children }) {
   const handleReRender = useCallback(async () => {
     setRemoteStream(null);
   }, [setRemoteStream]);
+
   useEffect(() => {
     peer.peer.addEventListener("track", handleEventListenTracks);
 
-
     return () => {
       peer.peer.removeEventListener("track", handleEventListenTracks);
-  
-
     };
   }, [peer, handleEventListenTracks]);
 
@@ -145,7 +141,7 @@ export default function Layout({ children }) {
           {remoteStream ? (
             <div>
               <h1>Remote Stream</h1>
-              <ReactPlayer playing  height="175px" url={remoteStream} />
+              <ReactPlayer playing height="175px" url={remoteStream} />
             </div>
           ) : null}
         </div>
@@ -153,7 +149,7 @@ export default function Layout({ children }) {
         {/* {isRecording ? (
               <ReactPlayer playing  url={audiostream} />
           ) : null} */}
-   
+
         <div className="ml-5 mr-5 mt-5 max-w-lg flex flex-wrap">
           {isVideoEnabled ? (
             <div className="bg-white mb-5 border border-gray-200 h-44 w-52 mr-3 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
